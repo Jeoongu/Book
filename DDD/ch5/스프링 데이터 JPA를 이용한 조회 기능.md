@@ -8,3 +8,28 @@
 - 하지만 ch5에서 설명할 정렬, 페이징, 검색 지정 조건과 같은 기능은 조회 기능에 사용된다. 즉, 이 장에서 살펴볼 구현 방법은 조회 모델을 구현할 때 주로 사용한다.
 - 이 장의 예제 코드는 리포지터리(도메인 모델에 속한)와 DAO(데이터 접근을 의미하는)라는 이름을 혼용해서 사용한다.
 > 모든 DB 연동 코드를 JPA만 사용해서 구현해야 한다고 생각하지는 말자.
+
+### 5.2 검색을 위한 스펙
+- 검색 조건이 고정되어 있고 단순하면 특정 조건으로 조회하는 기능을 만들면 되지만, 목록 조회와 같은 기능은 다양한 검색 조건을 조합해야 할 때가 있다.
+- 필요한 조합마다 find 메서드를 정의할 수도 있지만 이건 좋은 방법이 아니다. 조합이 증가할수록 정의해야 할 find 메서드도 함께 증가하기 때문이다.
+- 이렇게 검색 조건을 다양하게 조합해야 할 때 사용할 수 있는 것이 **스펙(Specification)**이다.
+    - 스펙은 애그리거트가 특정 조건을 충족하는지 검사할 때 사용하는 인터페이스다.
+    ```java
+    public interface Specficiation<T>{
+        public boolean isSatisfiedBy(T agg);
+    }
+    ```
+    - `isSatisfiedBy()` 메서드의 agg 파라미터는 검사 대상이 되는 개체이다.
+    - 스펙을 리포지터리에 사용하면 agg는 애그리거트 루트가 되고, 스펙을 DAO에 사용하면 agg는 검색 결과로 리턴할 데이터 객체가 된다.
+    - `isSatisfiedBy()` 메서드는 검사 대상 객체가 조건을 충족하면 true, 아니면 false를 리턴한다.
+    ```java
+    public class OrdererSpec implements Specification<Order>{
+        private String ordererId;
+        ...
+        public boolean isSatisfiedBy(Order agg){
+            return agg.getOrdererId().getMemberId().getId().equals(ordererId);
+        }
+    }
+    ```
+    - 리포지터리나 DAO는 검색 대상을 걸러내는 용도로 스펙을 사용한다.
+    
