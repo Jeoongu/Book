@@ -32,4 +32,47 @@
     }
     ```
     - 리포지터리나 DAO는 검색 대상을 걸러내는 용도로 스펙을 사용한다.
-    
+    ```java
+    public class MemoryOrderRepository implements OrderRepository {
+        public List<Order> findAll(Specification<Order> spec){
+            List<Order> allOrders = findAll();
+            return allOrders.stream().
+                            .filter(order -> spec.isSatisfiedBy(order))
+                            .toList();
+        }
+    }
+    ```
+    - 리포지터리가 스펙을 이용해서 검색 대상을 걸러주므로 특정 조건을 충족하는 애그리거트를 찾고 싶으면 원하는 스펙을 생성해서 리포지터리에 전달해 주기만 하면 된다.
+    ```java
+    // 검색 조건을 표현하는 스펙을 사용해서
+    Specification<Order> ordererSpec = new OrdererSpec("madvirus");
+
+    // 리포지터리에 전달
+    List<Order> orders = orderRepository.findAll(ordererSpec);
+    ```
+    - 하지만 실제 스펙은 사용하는 기술에 맞춰 구현하게 된다.
+
+### 5.3 스프링 데이터 JPA를 이용한 스펙 구현
+- Specification 인터페이스에서 제네릭 타입 파라미터 T는 JPA 엔티티 타입을 의미한다.
+- toPredicate() 메서드는 JPA criteria API에서 조건을 표현하는 Predicate을 생성한다.
+
+- JPA 정적 메타 모델
+    - 구현 시 `@StaticMetamodel`와 같이 애너테이션을 사용한다. 메타 모델 클래스는 모델 클래스의 이름 뒤에 _을 붙인 이름을 갖는다.
+
+- 5.3 다시 공부 필요
+
+### 5.4 리포지터리/DAO에서 스펙 사용하기
+- 스펙을 충족하는 엔티티를 검색하고 싶다면 `findAll()` 메서드를 사용하면 된다. `findAll()`메서드는 스펙 인터페이스를 파라미터로 갖는다.
+```java
+public interface OrderSummaryDao extends Repository<OrderSummary, String>{
+    List<OrderSummary> findAll(Specification<OrderSummary> spec);
+}
+```
+- 위의 findAll() 메서드는 OrderSummary에 대한 검색 조건을 표현하는 스펙 인터페이스를 파라미터로 갖는다.
+- 이 메서드와 앞서 작성한 스펙 구현체를 사용하면 특정 조건을 충족하는 엔티티를 검색할 수 있다.
+```java
+// 스펙 객체 생성하고
+Specification<OrderSummary> spec = new OrdererIdSpec("user1");
+// findAll() 메서드를 이용해서 검색
+List<OrderSummary> results = orderSummaryDao.findAll(spec);
+```
