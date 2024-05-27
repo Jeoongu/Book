@@ -76,3 +76,66 @@ Specification<OrderSummary> spec = new OrdererIdSpec("user1");
 // findAll() 메서드를 이용해서 검색
 List<OrderSummary> results = orderSummaryDao.findAll(spec);
 ```
+
+### 5.5 스펙 조합
+- 스프링 데이터 JPA가 제공하는 스펙 인터페이스는 스펙을 조합할 수 있는 `and()`와 `or()`메서드이다.
+- `and()` 메서드는 두 스펙을 모두 충족하는 조건을 표현하는 스펙을 생성한다.
+- `or()` 메서드는 두 스펙 중 하나 이상 충족하는 조건을 표현하는 스펙을 생성한다.
+- `not()` 메서드도 제공한다. 정적 메서드로 조건을 반대로 적용할 때 사용한다.
+- `where()` 메서드를 사용하면 null 여부 검사가 쉬워진다.
+
+### 5.6 정렬 지정하기
+- 스프링 데이터 JPA는 두 가지 방법을 사용해서 정렬을 지정할 수 있다.
+    - 메서드 이름에 OrderBy를 사용해서 정렬 기준 지정
+    ```java
+    List<OrderSummary> findByOrdererIdOrderByNumberDesc(String ordererId);
+    ```
+    - Sort를 인자로 전달
+    ```java
+    List<OrderSummary> findByOrdererId(String ordererId, Sort sort);
+    ...
+    Sort sort = Sort.by("number").ascending();
+    List<OrderSummary> results = orderSummaryDao.findByOrdererId("user1", sort);
+    ```
+
+### 5.7 페이징 처리하기
+- 목록을 보여줄 때 전체 데이터 중 일부만 보여주는 페이징 처리는 기본이다.
+- 스프링 데이터 JPA는 페이징 처리를 위해 Pageable 타입을 이용한다. Sort 타입과 마찬가지로 find 메서드에 Pageable 타입 파라미터를 사용하면 페이징을 자동으로 처리해 준다.
+```java
+// JpaRepository를 상속받는 interface
+List<MemberData> findByNameLike(String name, Pageable pageable);
+```
+```java
+Sort sort = Sort.by("name").descending;
+PageRequest req = PageRequest.of(1, 10, sort); // 첫 번째 인자는 페이지 번호, 두 번째 인자는 한 페이지의 개수
+List<MemberData> user = memberDataDao.findByNameLike("사용자%", req);
+```
+- Page 타입을 사용하면 데이터 목록뿐만 아니라 조건에 해당하는 전체 개수도 구할 수 있다.
+```java
+Page<MemberData> findByBlocked(boolean blocked, Pageable pageable);
+```
+- Pageable을 사용하는 메서드의 리턴 타입이 Page일 경우, 스프링 데이터 JPA는 목록 조회 쿼리와 함께 COUNT 쿼리도 실행해서 조건에 해당하는 데이터 개수를 구한다.
+```java
+PageRequest req = PageRequest.of(2, 3);
+Page<MemberData> page = memberDataDao.findByBlocked(false, req);
+// 이후 page.get~~()로 페이징 처리에 필요한 데이터를 얻을 수 있다.
+```
+- 하지만 페이징 처리와 관련된 정보가 필요 업다면 Page 리턴 타입이 아닌 List를 사용해서 불필요한 COUNT 쿼리를 실행하지 않도록 한다.
+- 처음부터 N개의 데이터가 필요하다면 Pageable을 사용하지 않고 `findFirstN()` 형식의 메서드를 사용할 수 도 있다.
+
+### 5.8 스펙 조합을 위한 스펙 빌더 클래스
+- 스펙을 생성하다 보면 스펙을 조합해야 할 때가 있다.
+- 단점을 보완하기 위해 `SpecBuilder`를 사용한다.
+```java
+Specfication<MemberData> spec = SpecBuilder.builder(MemberData.class)
+    .ifTrue(searchRequest.isOnlyNotBlocked(),
+        () -> MemberDataSpecs.nonBlocked())
+    .ifHasText(searchRequest.getName(),
+        name -> MemberDataSpecs.nameLike(searchRequest.getName()))
+    .toSpec();
+List<MemberData> result = memberDataDao.findAll(spec, PageRequest.of(0, 5));
+```
+- 스펙 빌더는 `and()`, `ifHasNext()`, `ifTure()`, `toSpec()` 메서드가 있는데, 이외에 필요한 메서드를 추가해서 사용하면 된다.
+
+### 5.9 동적 인스턴스 생성
+- JPA는 쿼리 결과에서 임의의 객체를 동적으로 생성할 수 있는 기능을 제공하고 있다.
