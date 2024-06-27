@@ -138,4 +138,32 @@ List<MemberData> result = memberDataDao.findAll(spec, PageRequest.of(0, 5));
 - 스펙 빌더는 `and()`, `ifHasNext()`, `ifTure()`, `toSpec()` 메서드가 있는데, 이외에 필요한 메서드를 추가해서 사용하면 된다.
 
 ### 5.9 동적 인스턴스 생성
-- JPA는 쿼리 결과에서 임의의 객체를 동적으로 생성할 수 있는 기능을 제공하고 있다.
+- **JPA는 쿼리 결과에서 임의의 객체를 동적으로 생성할 수 있는 기능을 제공하고 있다.**
+- JPQL의 select절에 new 키워드를 사용하여 동적 인스턴스를 생성할 수 있다. new 키워드 뒤에 생성할 인스턴스의 완전한 클래스 이름을 지정하고 괄호 안에 생성자에 인자로 전달할 값을 지정한다.
+- 조회 전용 모델을 만드는 이유는 표현 영역을 통해 사용자에게 데이터를 보여주기 위함이다.
+- 동적 인스턴스의 장점은 JPQL을 그대로 사용하므로 객체 기준으로 쿼리를 작성하면서도 동시에 지연/즉시 로디과 같은 고민 없이 원하는 모습으로 데이터를 조회할 수 있다는 점이다.
+
+### 5.10 하이버네이트 @Subselect 사용
+- 하이버네이트는 JPA 확장 기능으로 `@Subselect`를 제공한다.
+    - `@Subselect`는 쿼리 결과를 `@Entity`로 매핑할 수 있는 유용한 기능이다.
+    ```java
+    @Entity
+    @Immutable
+    @Subselect(
+        ......
+        select 어쩌구 저쩌구...
+        ......
+    )
+    @Synchronize({"purchase_order", "order_line", "product"})
+    public class OrderSummary{
+        @Id
+        ......
+    }
+    ```
+- `@Immutable`, `@Subselect`, `@Synchronize`는 하이버네이트 전용 애너테이션인데 이 태그를 사용하면 테이블이 아닌 쿼리 결과를 `@Entity`로 매핑할 수 있다.
+- `@Subselect`는 조회(select)쿼리를 값으로 갖는다. 하이버네이트는 이 select 쿼리의 결과를 매핑할 테이블처럼 사용한다.
+- DBMS가 뷰를 사용하는 것처럼 `@Subselect`를 사용하면 쿼리 실행 결과를 매핑할 테이블처럼 사용한다.
+- 뷰를 수정할 수 없듯이 `@Subselect`로 조회한 `@Entity` 역시 수정할 수 없다. 실수로 `@Subselect`를 이용한 `@Entity`의 매핑 필드를 수정하면 하이버네이트는 변경 내역을 반영하는 update 쿼리를 실행할 것이다. 그런데 매핑 한 테이블이 없으므로 에러가 발생한다.
+    - 이런 문제를 방지하기 위해 `@Immutable`을 사용한다.
+    - `@Immutable`을 사용하면 하이버네이트는 해당 엔티티의 매핑 필드/프로퍼티가 변경되도 DB에 반영하지 않고 무시한다.
+- `@Synchronize`는 해당 엔티티와 관련된 테이블 목록을 명시한다. 하이버네이트는 엔티티를 로딩하기 전에 지정한 테이블과 관련된 변경이 발생하면 플러시(flush)를 먼저 한다. 따라서 OrderSummary를 로딩하는 시점에서는 변경 내역이 반영된다.
